@@ -120,9 +120,9 @@ namespace Stock
             long total = 0;
             sw.Reset();
             sw.Start();
-            var it = (StockInfoModel)StocksComboBox.SelectedItem;
+            var it = (string)StocksComboBox.SelectedValue;
 
-            ((MainViewModel)this.DataContext).GetFilterData(new List<string>() { it.StockID });
+            ((MainViewModel)this.DataContext).GetFilterData(new List<string>() { it });
 
             sw.Stop();
             total += sw.ElapsedMilliseconds;

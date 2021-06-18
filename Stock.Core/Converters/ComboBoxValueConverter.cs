@@ -30,11 +30,11 @@ namespace Stock.Core.Converters
                 return value;
             }
 
-            var datas = (ObservableCollection<StockInfoModel>)value;
+            var datas = (Dictionary<string, StockInfoModel>)value;
 
             foreach (var data in datas)
             {
-                data.StockName = $"{data.StockID} - {data.StockName}";
+                data.Value.StockName = $"{data.Value.StockID} - {data.Value.StockName}";
             }
             return datas;
         }

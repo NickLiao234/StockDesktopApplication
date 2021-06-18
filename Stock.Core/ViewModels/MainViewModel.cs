@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Stock.Library.Extentions;
 using System.Collections.ObjectModel;
+using System.Collections;
 
 namespace Stock.Core.ViewModels
 {
@@ -17,9 +18,14 @@ namespace Stock.Core.ViewModels
     public class MainViewModel : INotifyPropertyChanged
     {
         /// <summary>
+        /// stockID與HashTableID對應表
+        /// </summary>
+        private Dictionary<string, List<int>> StockIDMapTable;
+
+        /// <summary>
         /// 原始個股資料
         /// </summary>
-        public List<StockInfoModel> Datas { get; set; }
+        public Hashtable Datas { get; set; }
 
         /// <summary>
         /// 篩選後個股資料
@@ -39,14 +45,14 @@ namespace Stock.Core.ViewModels
         /// <summary>
         /// 下拉選單Items
         /// </summary>
-        public ObservableCollection<StockInfoModel> ComboBoxItems { get; set; }
+        public Dictionary<string, StockInfoModel> ComboBoxItems { get; set; }
 
         /// <summary>
         /// 初始化原始資料屬性
         /// </summary>
         public MainViewModel()
         {
-            Datas = new List<StockInfoModel>();
+            Datas = new Hashtable();
         }
 
         /// <summary>
@@ -56,10 +62,12 @@ namespace Stock.Core.ViewModels
         /// <returns></returns>
         public async Task RetriveDatasAsync(string filePath)
         {
-            var result = new List<StockInfoModel>();
+            var result = new Hashtable();
+            var mapTable = new Dictionary<string, List<int>>();
 
             using (var reader = new StreamReader(File.OpenRead(filePath)))
-            {               
+            {
+                var index = 0;
                 while (!reader.EndOfStream)
                 {
                     var line = await reader.ReadLineAsync();
@@ -70,36 +78,58 @@ namespace Stock.Core.ViewModels
                     }
 
                     var values = line.Split(',');
+                    var dealDate = values[0];
+                    var stockID = values[1];
+                    var stockName = values[2];
+                    var secBrokerID = values[3];
+                    var secBrokerName = values[4];
+                    var price = Convert.ToDouble(values[5]);
+                    var buyQty = Convert.ToInt32(values[6]);
+                    var cellQty = Convert.ToInt32(values[7]);
 
-                    result.Add(new StockInfoModel()
+                    result.Add(index, new StockInfoModel()
                     {
-                        DealDate = values[0],
-                        StockID = values[1],
-                        StockName = values[2],
-                        SecBrokerID = values[3],
-                        SecBrokerName = values[4],
-                        Price = Convert.ToDouble(values[5]),
-                        BuyQty = Convert.ToInt32(values[6]),
-                        CellQty = Convert.ToInt32(values[7])
+                        DealDate = dealDate,
+                        StockID = stockID,
+                        StockName = stockName,
+                        SecBrokerID = secBrokerID,
+                        SecBrokerName = secBrokerName,
+                        Price = Convert.ToDouble(price),
+                        BuyQty = Convert.ToInt32(buyQty),
+                        CellQty = Convert.ToInt32(cellQty)
                     });
-                }
+
+                    if (mapTable.ContainsKey(stockID))
+                    {
+                        mapTable[stockID].Add(index);  
+                    }
+                    else
+                    {
+                        var list = new List<int>();
+                        list.Add(index);
+                        mapTable.Add(stockID, list);
+                    }
+
+                    index += 1;
+                }             
             }
 
             Datas = result;
+            StockIDMapTable = mapTable;
 
-            var obsv = new ObservableCollection<StockInfoModel>() 
-            { 
+            var comboBoxDatas = new Dictionary<string, StockInfoModel>();
+            comboBoxDatas.Add(
+                "All",
                 new StockInfoModel()
                 {
                     StockID = "All"
-                }
-            };
-            var datas = Datas.Distinct(c => c.StockID).ToList();
-            foreach (var data in datas)
+                });
+            
+            foreach (DictionaryEntry data in Datas)
             {
-                obsv.Add(data);
+                comboBoxDatas[((StockInfoModel)data.Value).StockID] = (StockInfoModel)data.Value;
             }
-            ComboBoxItems = obsv;
+            ComboBoxItems = comboBoxDatas;
         }
 
         /// <summary>
@@ -118,24 +148,31 @@ namespace Stock.Core.ViewModels
 
             if (StockIDList.Contains("All"))
             {
-                var strList = ComboBoxItems.Select(d => d.StockID).ToList();
+                var strList = ComboBoxItems.Select(d => d.Value.StockID).ToList();
                 strList.RemoveAt(0);
                 StockIDList = strList;
             }
 
             foreach (var stockID in StockIDList)
             {
-                var filterDatas = Datas.Where(data => data.StockID == stockID).ToList();
-                resultOfFilterDatas.AddRange(filterDatas);
+                var mapIDs = StockIDMapTable[stockID];
+                var eachStockDatas = new List<StockInfoModel>();
+
+                foreach (var hashTableID in mapIDs)
+                {
+                    eachStockDatas.Add((StockInfoModel)Datas[hashTableID]);
+                }
+
+                resultOfFilterDatas.AddRange(eachStockDatas);
 
                 var statisticsData = new StatisticsData();
                 statisticsData.StockID = stockID;
-                statisticsData.StockName = filterDatas.First().StockName;
-                statisticsData.BuyTotal = filterDatas.Sum(d => d.BuyQty);
-                statisticsData.CellTotal = filterDatas.Sum(d => d.CellQty);
+                statisticsData.StockName = eachStockDatas.First().StockName;
+                statisticsData.BuyTotal = eachStockDatas.Sum(d => d.BuyQty);
+                statisticsData.CellTotal = eachStockDatas.Sum(d => d.CellQty);
                 statisticsData.BuyCellOver = statisticsData.BuyTotal - statisticsData.CellTotal;
-                statisticsData.SecBrokerCnt = filterDatas.Distinct(d => d.SecBrokerID).Count();
-                var sumPrice = filterDatas.Sum(d => d.Price * (d.BuyQty + d.CellQty));
+                statisticsData.SecBrokerCnt = eachStockDatas.Distinct(d => d.SecBrokerID).Count();
+                var sumPrice = eachStockDatas.Sum(d => d.Price * (d.BuyQty + d.CellQty));
                 statisticsData.AvgPrice = sumPrice / (statisticsData.BuyTotal + statisticsData.CellTotal);
 
                 resultOfStatisticsDatas.Add(statisticsData);
@@ -159,7 +196,7 @@ namespace Stock.Core.ViewModels
 
             if (StockIDList.Contains("All"))
             {
-                var strList = ComboBoxItems.Select(d => d.StockID).ToList();
+                var strList = ComboBoxItems.Select(d => d.Value.StockID).ToList();
                 strList.RemoveAt(0);
                 StockIDList = strList;
             }
@@ -209,7 +246,7 @@ namespace Stock.Core.ViewModels
         {
             var result = new List<StockInfoModel>();
 
-            var datasByID = Datas.Where(d => d.StockID == stockID).ToList();
+            var datasByID = Datas.Values.Cast<StockInfoModel>().Where(d => d.StockID == stockID).ToList();
             var secBrokerIDs = datasByID.Distinct(d => d.SecBrokerID).Select(d => d.SecBrokerID).ToList();
             foreach (var secBrokerID in secBrokerIDs)
             {                
