@@ -25,7 +25,7 @@ namespace Stock.Core.ViewModels
         /// <summary>
         /// 原始個股資料
         /// </summary>
-        public Hashtable Datas { get; set; }
+        public Dictionary<int,StockInfoModel> Datas { get; set; }
 
         /// <summary>
         /// 篩選後個股資料
@@ -52,7 +52,7 @@ namespace Stock.Core.ViewModels
         /// </summary>
         public MainViewModel()
         {
-            Datas = new Hashtable();
+            Datas = new Dictionary<int, StockInfoModel>();
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace Stock.Core.ViewModels
         /// <returns></returns>
         public async Task RetriveDatasAsync(string filePath)
         {
-            var result = new Hashtable();
+            var result = new Dictionary<int,StockInfoModel>();
             var mapTable = new Dictionary<string, List<int>>();
 
             using (var reader = new StreamReader(File.OpenRead(filePath)))
@@ -125,9 +125,9 @@ namespace Stock.Core.ViewModels
                     StockID = "All"
                 });
             
-            foreach (DictionaryEntry data in Datas)
+            foreach (var data in Datas)
             {
-                comboBoxDatas[((StockInfoModel)data.Value).StockID] = (StockInfoModel)data.Value;
+                comboBoxDatas[data.Value.StockID] = data.Value;
             }
             ComboBoxItems = comboBoxDatas;
         }
@@ -160,7 +160,7 @@ namespace Stock.Core.ViewModels
 
                 foreach (var hashTableID in mapIDs)
                 {
-                    eachStockDatas.Add((StockInfoModel)Datas[hashTableID]);
+                    eachStockDatas.Add(Datas[hashTableID]);
                 }
 
                 resultOfFilterDatas.AddRange(eachStockDatas);
@@ -246,7 +246,7 @@ namespace Stock.Core.ViewModels
         {
             var result = new List<StockInfoModel>();
 
-            var datasByID = Datas.Values.Cast<StockInfoModel>().Where(d => d.StockID == stockID).ToList();
+            var datasByID = Datas.Values.Where(d => d.StockID == stockID).ToList();
             var secBrokerIDs = datasByID.Distinct(d => d.SecBrokerID).Select(d => d.SecBrokerID).ToList();
             foreach (var secBrokerID in secBrokerIDs)
             {                
