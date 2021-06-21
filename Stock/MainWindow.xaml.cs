@@ -33,7 +33,7 @@ namespace Stock
         /// </summary>
         /// <param name="sender">sender</param>
         /// <param name="e">args</param>
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private async void Button_Click(object sender, RoutedEventArgs e)
         {
             long total = 0;
 
@@ -53,13 +53,7 @@ namespace Stock
 
                 var vm = (MainViewModel)this.DataContext;
 
-                ThreadPool.QueueUserWorkItem(o =>
-                {
-                    Dispatcher.BeginInvoke(new Action(async () =>
-                    {
-                        await vm.RetriveDatasAsync(openFileDialog.FileName);
-                    }));
-                });
+                await vm.RetriveDatasAsync(openFileDialog.FileName);
 
                 sw.Stop();
                 total += sw.ElapsedMilliseconds;
